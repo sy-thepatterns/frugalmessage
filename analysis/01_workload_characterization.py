@@ -5,6 +5,7 @@ No simulated quantity in this module is a measured packet, server latency, or jo
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -56,7 +57,7 @@ def model_batches(times: np.ndarray, max_count: int, max_wait_s: float) -> tuple
 
 def save(fig: go.Figure, directory: Path, name: str) -> None:
     fig.update_layout(template="plotly_white", title_x=0.03)
-    fig.write_html(directory / f"{name}.html", include_plotlyjs=True, full_html=True)
+    fig.write_html(directory / f"{name}.html", include_plotlyjs="cdn", full_html=True)
 
 
 def main() -> None:
@@ -67,6 +68,11 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     figures = args.output / "figures"
     figures.mkdir(exist_ok=True)
+    digest = hashlib.sha256()
+    with args.input.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    input_sha256 = digest.hexdigest()
 
     raw = load(args.input)
     total = len(raw)
@@ -80,6 +86,7 @@ def main() -> None:
         raise ValueError("No timestamped readings with mote IDs 1-54")
 
     daily = valid.groupby(valid.timestamp.dt.floor("D")).size().rename("readings")
+    complete_days = daily.iloc[1:-1]  # endpoints are partial observation days
     hourly = valid.groupby(valid.timestamp.dt.hour).size().rename("readings").reindex(range(24), fill_value=0)
     by_mote = valid.groupby("moteid").size().reindex(range(1, 55), fill_value=0).rename("readings")
     gaps = valid.groupby("moteid").timestamp.diff().dt.total_seconds().dropna()
@@ -122,24 +129,24 @@ def main() -> None:
                 labels={"max_count": "Maximum records per batch", "modelled_reduction_pct": "Modelled reduction in sends (%)"},
                 title="7. Hypothetical reduction in sends; assumes one send per batch"), figures, "07_modelled_send_reduction")
 
-    metrics = {"source": SOURCE, "input": str(args.input), "raw_rows": total,
+    metrics = {"source": SOURCE, "input": str(args.input), "input_sha256": input_sha256, "raw_rows": total,
                "invalid_timestamps": invalid_time, "missing_mote_ids": missing_mote,
                "out_of_roster_mote_ids": out_of_roster, "rows_with_missing_sensor_channel": incomplete,
                "valid_timestamped_roster_rows": len(valid), "first_timestamp": str(valid.timestamp.min()),
                "last_timestamp": str(valid.timestamp.max()), "median_per_mote_gap_s": float(gaps.median()),
                "p95_per_mote_gap_s": float(gaps.quantile(.95)),
-               "daily_min": int(daily.min()), "daily_max": int(daily.max()),
+               "interior_day_min": int(complete_days.min()), "interior_day_max": int(complete_days.max()),
                "sensor_min": int(by_mote.min()), "sensor_max": int(by_mote.max()),
                "batch_scenarios": scenarios}
     (args.output / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     sim.to_csv(args.output / "batch_scenarios.csv", index=False)
     report = f"""# Analysis I - first quantitative findings
 
-Source: [original Intel Lab Data]({SOURCE}). Input: `{args.input}`. All counts below are calculated from that file. Times are as recorded by the source; a timezone is not asserted.
+Source: [original Intel Lab Data]({SOURCE}). Input: `{args.input}`; SHA-256: `{input_sha256}`. All counts below are calculated from that file. Times are as recorded by the source; a timezone is not asserted.
 
 ## Data validation and scope
 
-Raw records: **{total:,}**; valid timestamp and roster ID (1-54): **{len(valid):,}**; invalid timestamps: **{invalid_time:,}**; missing mote IDs: **{missing_mote:,}**; out-of-roster IDs: **{out_of_roster:,}**; rows with =1 missing sensor channel: **{incomplete:,}**. Observation interval: {valid.timestamp.min()} to {valid.timestamp.max()}.
+Raw records: **{total:,}**; valid timestamp and roster ID (1-54): **{len(valid):,}**; invalid timestamps: **{invalid_time:,}**; missing mote IDs: **{missing_mote:,}**; out-of-roster IDs: **{out_of_roster:,}**; rows with at least one missing sensor channel: **{incomplete:,}**. Observation interval: {valid.timestamp.min()} to {valid.timestamp.max()}.
 
 **Technical interpretation:** Counts are log observations after an explicit single-space parse. The source has missing epochs and incomplete sensors. Neither a missing reading nor a long gap identifies a network packet loss without independent packet-level evidence.
 
@@ -147,9 +154,9 @@ Raw records: **{total:,}**; valid timestamp and roster ID (1-54): **{len(valid):
 
 ## Q1 - How variable is the arrival workload?
 
-Daily recorded volume ranges from **{int(daily.min()):,}** to **{int(daily.max()):,}** readings. The median and p95 of nonnegative consecutive *within-mote* gaps are **{gaps.median():.1f} s** and **{gaps.quantile(.95):.1f} s**. See figures 1, 2, 4 and 5.
+Across interior calendar days, recorded volume ranges from **{int(complete_days.min()):,}** to **{int(complete_days.max()):,}** readings. The median and p95 of nonnegative consecutive *within-mote* gaps are **{gaps.median():.1f} s** and **{gaps.quantile(.95):.1f} s**. See figures 1, 2, 4 and 5.
 
-**Technical interpretation:** These are empirical arrival and within-source interval distributions conditional on records being logged. Daily endpoint days may be partial. Aggregating all 54 motes would conceal per-source gaps, so the gap distribution is calculated separately for each mote.
+**Technical interpretation:** These are empirical arrival and within-source interval distributions conditional on records being logged. The daily range excludes the first and last calendar day because they are partial; other days may still contain outages. Aggregating all 54 motes would conceal per-source gaps, so the gap distribution is calculated separately for each mote.
 
 **Plain language:** The flow of recorded readings changes over time, and each sensor has its own pattern. That gives us a realistic input schedule to replay in later experiments.
 
@@ -168,6 +175,20 @@ Figures 6 and 7 and `batch_scenarios.csv` show a deterministic count-or-timeout 
 ## What this analysis cannot conclude
 
 It cannot establish that batching saves energy, that MQTT is preferable to HTTP, or that the Intel wireless deployment resembles a particular homelab. Next: use Alibaba traces to characterize real service edges, then replay fixed workloads on an instrumented service path and measure wall energy, bytes, delivery and latency.
+
+## Interactive figures
+
+Download an HTML file and open it in a browser with internet access for the Plotly library.
+
+| Figure | Technical reading | Plain-language reading |
+| --- | --- | --- |
+| [1. Daily volume](figures/01_daily_volume.html) | Timestamped row count by calendar day; boundary days are partial and low interior days may reflect downtime. | The recorded flow varies; low counts need investigation. |
+| [2. Hourly volume](figures/02_hour_of_day.html) | Row count by source hour aggregated across dates, without uptime normalization. | Some hours have more recorded events, but this alone does not prove a daily demand cycle. |
+| [3. Sensor coverage](figures/03_mote_coverage.html) | Marginal event counts per valid mote ID. | Sensors contributed different amounts of data. |
+| [4. Gap frequency](figures/04_within_mote_gaps.html) | Consecutive within-mote gaps, with values above the 99th percentile omitted from the plotted histogram. | Most observed gaps are short; this view hides the longest ones. |
+| [5. Gap quantiles](figures/05_gap_ecdf.html) | Empirical interval quantiles including the upper tail. | This shows how unusual the longer gaps are. |
+| [6. Modelled tradeoff](figures/06_modelled_batch_tradeoff.html) | Batch count versus p95 modelled holding time under explicit count/timeout rules. | Combining records could mean fewer sends but some records wait; neither outcome has been measured on a server. |
+| [7. Modelled send reduction](figures/07_modelled_send_reduction.html) | Reduction relative to one modelled send per accepted log event. | This is a planning calculation, not an electricity saving. |
 """
     (args.output / "report.md").write_text(report, encoding="utf-8")
     print(f"Analysed {total:,} records; wrote report, metrics and 7 Plotly figures to {args.output}")
