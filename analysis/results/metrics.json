@@ -1,0 +1,84 @@
+{
+  "source": "https://db.lcs.mit.edu/labdata/labdata.html",
+  "input": "data\\raw\\intel\\data.txt.gz",
+  "input_sha256": "d99288c8f406ca6604d359ceaa0d8adfffa79e7095061a1e27dc4399f48c7225",
+  "raw_rows": 2313682,
+  "invalid_timestamps": 4,
+  "missing_mote_ids": 526,
+  "out_of_roster_mote_ids": 9866,
+  "rows_with_missing_sensor_channel": 93879,
+  "valid_timestamped_roster_rows": 2303286,
+  "first_timestamp": "2004-02-28 00:58:46.002832",
+  "last_timestamp": "2004-04-03 16:51:34.171452",
+  "median_per_mote_gap_s": 33.244048,
+  "p95_per_mote_gap_s": 148.97975059999987,
+  "interior_day_min": 279,
+  "interior_day_max": 101207,
+  "sensor_min": 35,
+  "sensor_max": 65693,
+  "batch_scenarios": [
+    {
+      "max_count": 1,
+      "max_wait_s": 1,
+      "modelled_batches": 2303286,
+      "modelled_reduction_pct": 0.0,
+      "modelled_p95_hold_s": 0.0
+    },
+    {
+      "max_count": 1,
+      "max_wait_s": 10,
+      "modelled_batches": 2303286,
+      "modelled_reduction_pct": 0.0,
+      "modelled_p95_hold_s": 0.0
+    },
+    {
+      "max_count": 1,
+      "max_wait_s": 60,
+      "modelled_batches": 2303286,
+      "modelled_reduction_pct": 0.0,
+      "modelled_p95_hold_s": 0.0
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 1,
+      "modelled_batches": 287927,
+      "modelled_reduction_pct": 87.49929448622534,
+      "modelled_p95_hold_s": 0.022210545430425555
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 10,
+      "modelled_batches": 287914,
+      "modelled_reduction_pct": 87.49985889724506,
+      "modelled_p95_hold_s": 0.02220987604232505
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 60,
+      "modelled_batches": 287912,
+      "modelled_reduction_pct": 87.49994572970964,
+      "modelled_p95_hold_s": 0.02220987604232505
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 1,
+      "modelled_batches": 72005,
+      "modelled_reduction_pct": 96.87381419415566,
+      "modelled_p95_hold_s": 0.05525729845976457
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 10,
+      "modelled_batches": 71983,
+      "modelled_reduction_pct": 96.87476935126598,
+      "modelled_p95_hold_s": 0.05525729845976457
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 60,
+      "modelled_batches": 71979,
+      "modelled_reduction_pct": 96.87494301619512,
+      "modelled_p95_hold_s": 0.05525628401665017
+    }
+  ]
+}
