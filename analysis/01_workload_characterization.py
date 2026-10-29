@@ -92,11 +92,17 @@ def main() -> None:
                 title="2. Logged readings by hour of day (aggregated across dates)"), figures, "02_hour_of_day")
     save(px.bar(x=by_mote.index, y=by_mote.values, labels={"x": "Mote ID", "y": "Logged readings"},
                 title="3. Unequal coverage across sensors"), figures, "03_mote_coverage")
-    save(px.histogram(x=gaps[gaps <= gaps.quantile(.99)], nbins=90,
-                      labels={"x": "Seconds between logged readings from one mote", "y": "Frequency"},
-                      title="4. Within-mote gaps (0-99th percentile; tail excluded from view)"), figures, "04_within_mote_gaps")
-    save(px.ecdf(x=gaps[gaps <= gaps.quantile(.999)], labels={"x": "Seconds between logged readings", "y": "Cumulative proportion"},
-                 title="5. Cumulative within-mote gaps (0-99.9th percentile)"), figures, "05_gap_ecdf")
+    cutoff = float(gaps.quantile(.99))
+    counts, edges = np.histogram(gaps[gaps <= cutoff], bins=90)
+    save(px.bar(x=(edges[:-1] + edges[1:]) / 2, y=counts,
+                labels={"x": "Seconds between logged readings from one mote", "y": "Frequency"},
+                title="4. Within-mote gaps (0-99th percentile; tail excluded from view)"), figures, "04_within_mote_gaps")
+    # Aggregate to 101 quantiles rather than embedding millions of raw values
+    # in a multi-megabyte HTML plot. Include the upper tail in the quantiles.
+    probabilities = np.linspace(0, 1, 101)
+    save(px.line(x=gaps.quantile(probabilities).to_numpy(), y=probabilities,
+                 labels={"x": "Seconds between logged readings", "y": "Cumulative proportion"},
+                 title="5. Within-mote gap quantiles (entire observed range)"), figures, "05_gap_ecdf")
 
     scenarios = []
     for count in (1, 8, 32):
