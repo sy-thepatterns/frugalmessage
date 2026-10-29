@@ -7,7 +7,7 @@ Quantitative research into communication between services. This repository begin
 1. Install Python 3.10+ and `pip install -r requirements.txt`.
 2. Download `data.txt.gz` from the [Intel Lab Data original source](https://db.lcs.mit.edu/labdata/labdata.html) and place it at `data/raw/intel/data.txt.gz` (or pass its path explicitly). The download is approximately 34 MB compressed. Do not commit the raw file.
 3. Run `python analysis/01_workload_characterization.py --input data/raw/intel/data.txt.gz --output analysis/results`.
-4. Open `analysis/results/report.md` and the interactive Plotly HTML files in `analysis/results/figures/`.
+4. Open `analysis/results/report.md` and the interactive Plotly HTML files in `analysis/results/figures/`. The HTML figures load Plotly from a CDN when opened and therefore need an internet connection.
 
 The analysis validates the raw row count and parser assumptions, writes machine-readable metrics, and explains each result in technical and plain language. The output is generated from the downloaded data; no results are hard-coded.
 
