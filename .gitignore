@@ -1,5 +1,7 @@
 data/raw/
-analysis/results/
 __pycache__/
 .venv/
+.deps/
+.tmp/
+analysis/results/figures/plotly.min.js
 
