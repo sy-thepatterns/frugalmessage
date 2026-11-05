@@ -2,12 +2,19 @@
 
 Quantitative research into communication between services. This repository begins with **Analysis I: workload characterization**. It does not claim an energy saving from observational data.
 
-## Run the first analysis
+## Research notebooks
 
-1. Install Python 3.10+ and `pip install -r requirements.txt`.
+- [Analysis I: Observed workloads](analysis/01_observed_workloads.ipynb) contains the original source, questions, validation, five Plotly figures, and technical and plain-language interpretations.
+- [Analysis II: Models and experiments](analysis/02_models_and_experiments.ipynb) contains the explicit batching counterfactual, two Plotly figures, boundary checks, experimental protocol, and a measured-results/Pareto section that waits for real experiment data.
+
+The notebooks are the primary reading path. The Python script and published HTML figures remain available for non-notebook execution and for browsing the current findings without downloading the raw archive.
+
+## Run the notebooks
+
+1. Install Python 3.10+ and `pip install -r requirements.txt`, then launch `jupyter lab` from the `analysis/` directory.
 2. Download `data.txt.gz` from the [Intel Lab Data original source](https://db.lcs.mit.edu/labdata/labdata.html) and place it at `data/raw/intel/data.txt.gz` (or pass its path explicitly). The download is approximately 34 MB compressed. Do not commit the raw file.
-3. Run `python analysis/01_workload_characterization.py --input data/raw/intel/data.txt.gz --output analysis/results`.
-4. Open `analysis/results/report.md` and the interactive Plotly HTML files in `analysis/results/figures/`. The HTML figures load Plotly from a CDN when opened and therefore need an internet connection.
+3. Open and run `01_observed_workloads.ipynb`, then `02_models_and_experiments.ipynb`.
+4. Alternatively run `python analysis/01_workload_characterization.py --input data/raw/intel/data.txt.gz --output analysis/results` and open the report and interactive Plotly HTML figures. The HTML figures load Plotly from a CDN and need an internet connection.
 
 The analysis validates the raw row count and parser assumptions, writes machine-readable metrics, and explains each result in technical and plain language. The output is generated from the downloaded data; no results are hard-coded.
 
