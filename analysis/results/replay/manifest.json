@@ -1,0 +1,73 @@
+{
+  "input": {
+    "intel_sha256": "d99288c8f406ca6604d359ceaa0d8adfffa79e7095061a1e27dc4399f48c7225",
+    "azure_sha256": "aff8b3ca7240a41a109e4ee598e0a96e45fcb92e7b8395ac19cb3748cd260d89"
+  },
+  "selection": {
+    "intel": {
+      "quiet": {
+        "day": "2004-03-06",
+        "hour": 4,
+        "observed_count": 3926,
+        "min_active_minute": 40,
+        "mean_active_minute": 43.45,
+        "peak_to_mean": 1.1462047885888944
+      },
+      "steady": {
+        "day": "2004-03-08",
+        "hour": 0,
+        "observed_count": 4557,
+        "min_active_minute": 42,
+        "mean_active_minute": 47.083333333333336,
+        "peak_to_mean": 1.1454904542462145
+      },
+      "bursty": {
+        "day": "2004-03-10",
+        "hour": 6,
+        "observed_count": 4582,
+        "min_active_minute": 41,
+        "mean_active_minute": 46.1,
+        "peak_to_mean": 1.2439982540375383
+      }
+    },
+    "azure": {
+      "quiet": {
+        "day": "d08",
+        "hour": 1,
+        "observed_count": 29937581,
+        "min_active_minute": 46998,
+        "mean_active_minute": 46998.0,
+        "peak_to_mean": 1.162985746911215
+      },
+      "steady": {
+        "day": "d13",
+        "hour": 21,
+        "observed_count": 37363901,
+        "min_active_minute": 36676,
+        "mean_active_minute": 36676.0,
+        "peak_to_mean": 1.140393236776856
+      },
+      "bursty": {
+        "day": "d09",
+        "hour": 18,
+        "observed_count": 42726264,
+        "min_active_minute": 47659,
+        "mean_active_minute": 47659.0,
+        "peak_to_mean": 1.6783381762561782
+      }
+    }
+  },
+  "window_minutes": 60,
+  "intel_availability_rule": "at least 40 distinct mote IDs in every minute of an eligible window",
+  "azure_active_sources_field": "number of function rows in that day file; not a per-minute active-function count and not used as an availability gate",
+  "quiet_rule": "minimum positive hourly count among eligible windows",
+  "steady_rule": "nearest median hourly count among windows at or below median peak-to-mean ratio",
+  "bursty_rule": "maximum peak-to-mean ratio among windows at or above median hourly count",
+  "profile_scale": {
+    "intel": 1.0,
+    "azure": 0.0001
+  },
+  "azure_event_timing": "deterministically spaced within each source minute; not observed individual timestamps",
+  "intel_event_timing": "source log timestamps, timezone unspecified",
+  "event_ids": "Intel raw row index or deterministic Azure day/hour/minute/ordinal"
+}

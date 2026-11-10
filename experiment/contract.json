@@ -1,0 +1,23 @@
+{
+  "study_version": 1,
+  "path": "HTTP producer -> in-process bounded queue -> one worker -> PostgreSQL",
+  "reference_backend": "SQLite is for local functional tests only",
+  "compatibility_key": ["route_key", "tenant", "schema"],
+  "destination": "one study_events table in the isolated study PostgreSQL container",
+  "ordering": "producer assigns increasing sequence per route; one sender and one worker preserve dispatch order",
+  "acknowledgement": "HTTP 200 follows database transaction commit",
+  "delivery": "up to three HTTP attempts; event IDs are idempotent under primary key (run_id, event_id)",
+  "payload": "anonymized replay ID, route key, tenant, schema, sequence, emission timestamp",
+  "predeclared_research_limits": {
+    "p95_delivery_ms": 2000,
+    "p99_delivery_ms": 5000,
+    "missing_completed_ids": 0,
+    "extra_completed_ids": 0,
+    "duplicate_completed_ids": 0,
+    "send_errors": 0,
+    "throughput_floor": "90% of same-profile baseline median"
+  },
+  "energy_objective": "declared system-boundary joules per verified successful event (AC wall or battery DC); compare only within one boundary",
+  "hardware_profiles": ["Lenovo Yoga 7i Gen 9 16-inch: Windows, exact machine type pending, preferred primary target", "M1 MacBook Air: macOS 26.6.2, secondary target when checkout is opened there"],
+  "measurement_limits": "Application JSON body bytes and producer CPU are not packets, total network bytes, or whole-host energy"
+}

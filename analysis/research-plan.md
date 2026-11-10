@@ -18,12 +18,12 @@ Under which observed workload and dependency patterns might internal communicati
 
 # Analysis II - Controlled experiments
 
-Freeze topology, workload replay, data payload, hardware, software version and task definition. Randomize or alternate baseline and candidate order; include idle measurements and repeated runs on the same testbed. First path: producer  broker/queue  worker  PostgreSQL. One candidate family: batch size � maximum wait. Keep delivery semantics constant.
+Freeze topology, workload replay, data payload, hardware, software version and task definition. Randomize or alternate baseline and candidate order; include idle measurements and repeated runs on the same testbed. First path: producer → queue → worker → PostgreSQL. One candidate family: batch size × maximum wait. Keep delivery semantics constant.
 
 | Question | Measured variables | Acceptance condition |
 | --- | --- | --- |
 | Does configuration reduce communication work? | Actual bytes and packets on each service edge; messages and completed events | Count both request and reply traffic, including retries and acknowledgements. |
-| Does it reduce energy? | Timestamped wall watts, duration, idle control, joules / successful event | Report uncertainty across repeated runs; distinguish whole-host and incremental energy. |
+| Does it reduce energy? | Timestamped system watts at a declared AC-wall or battery-DC boundary, duration, idle control, joules / successful event | Report uncertainty across repeated runs; distinguish whole-host and incremental energy. |
 | What does it cost users? | p50/p95/p99 end-to-end event latency, throughput, failures, duplicates and loss | Define task-specific latency/reliability thresholds before selecting a winner. |
 | Does the benefit persist? | Quiet, steady and bursty profiles derived from published traces | Report each profile separately, with workload and device labels. |
 

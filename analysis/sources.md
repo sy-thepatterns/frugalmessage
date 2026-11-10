@@ -12,3 +12,11 @@
 
 Sources are observational data or potential experimental inputs. We must never present a replay, a simulated batching result, or a SPEC power curve as measured energy savings for FrugalMessage.
 
+## Executed public-data scope
+
+- **Intel:** The original compressed log was downloaded from [MIT CSAIL](https://db.csail.mit.edu/labdata/data.txt.gz). SHA-256: `d99288c8f406ca6604d359ceaa0d8adfffa79e7095061a1e27dc4399f48c7225`. The raw archive is ignored by Git.
+- **Alibaba:** Three complete five-minute call-graph shards were downloaded from the [publisher's archive directory](https://aliopentrace.oss-cn-beijing.aliyuncs.com/v2021MicroservicesTraces/MSCallGraph/MSCallGraph_0.tar.gz): `MSCallGraph_0.tar.gz` (`b5cba70a4064018af096096b4fdb4c81161a1e681e1add78930201846ad9a235`), `MSCallGraph_72.tar.gz` (`b0c840be330386d61ef9c7ddf5b73e1f97fcaa2bb81c46303b4fbda36b02d7aa`), and `MSCallGraph_143.tar.gz` (`bf230afd60787ae7a8fbd4e7bf15699a9755bc978545075bf372e123ba41bd0f`). These are three of 145 archives; the publisher's call-graph collection is itself sampled at 0.5%. A tiny terminal shard 144 was inspected but excluded because it contains only a partial endpoint period. Edge concentration is reported separately by shard and only for known endpoints.
+- **Azure:** The complete [2019 Functions release archive](https://github.com/Azure/AzurePublicDataset/releases/download/dataset-functions-2019/azurefunctions_dataset2019_azurefunctions-dataset2019.tar.xz) was downloaded. SHA-256: `aff8b3ca7240a41a109e4ee598e0a96e45fcb92e7b8395ac19cb3748cd260d89`. All 14 invocation-day files were processed. Function invocations are not service calls, and the archive is a small, unspecified sample of applications. Azure's CC BY attribution and paper citation are in the [publisher description](https://github.com/Azure/AzurePublicDataset/blob/master/AzureFunctionsDataset2019.md).
+
+The Intel and Azure archive sizes are about 34 MB and 143 MB. Each analyzed Alibaba shard is about 162–196 MB compressed. Source hashes and selection decisions are recorded in the [Alibaba slice report](results/alibaba/report.md) and the [replay manifest](results/replay/manifest.json). The generated `replay_events.csv` contains anonymized IDs and constructed Azure event timing, not raw sensor measurements or function payloads.
+

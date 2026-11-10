@@ -47,4 +47,3 @@ Download an HTML file and open it in a browser with internet access for the Plot
 | [5. Gap quantiles](figures/05_gap_ecdf.html) | Empirical interval quantiles including the upper tail. | This shows how unusual the longer gaps are. |
 | [6. Modelled tradeoff](figures/06_modelled_batch_tradeoff.html) | Batch count versus p95 modelled holding time under explicit count/timeout rules. | Combining records could mean fewer sends but some records wait; neither outcome has been measured on a server. |
 | [7. Modelled send reduction](figures/07_modelled_send_reduction.html) | Reduction relative to one modelled send per accepted log event. | This is a planning calculation, not an electricity saving. |
-

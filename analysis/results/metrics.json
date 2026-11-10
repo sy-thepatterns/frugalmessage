@@ -41,44 +41,44 @@
     {
       "max_count": 8,
       "max_wait_s": 1,
-      "modelled_batches": 287927,
-      "modelled_reduction_pct": 87.49929448622534,
-      "modelled_p95_hold_s": 0.022210545430425555
+      "modelled_batches": 796336,
+      "modelled_reduction_pct": 65.42609124529042,
+      "modelled_p95_hold_s": 1.0
     },
     {
       "max_count": 8,
       "max_wait_s": 10,
-      "modelled_batches": 287914,
-      "modelled_reduction_pct": 87.49985889724506,
-      "modelled_p95_hold_s": 0.02220987604232505
+      "modelled_batches": 335460,
+      "modelled_reduction_pct": 85.43559071691487,
+      "modelled_p95_hold_s": 9.80399376153946
     },
     {
       "max_count": 8,
       "max_wait_s": 60,
-      "modelled_batches": 287912,
-      "modelled_reduction_pct": 87.49994572970964,
-      "modelled_p95_hold_s": 0.02220987604232505
+      "modelled_batches": 288065,
+      "modelled_reduction_pct": 87.49330304616969,
+      "modelled_p95_hold_s": 22.23013836145401
     },
     {
       "max_count": 32,
       "max_wait_s": 1,
-      "modelled_batches": 72005,
-      "modelled_reduction_pct": 96.87381419415566,
-      "modelled_p95_hold_s": 0.05525729845976457
+      "modelled_batches": 779894,
+      "modelled_reduction_pct": 66.1399409365576,
+      "modelled_p95_hold_s": 1.0
     },
     {
       "max_count": 32,
       "max_wait_s": 10,
-      "modelled_batches": 71983,
-      "modelled_reduction_pct": 96.87476935126598,
-      "modelled_p95_hold_s": 0.05525729845976457
+      "modelled_batches": 169841,
+      "modelled_reduction_pct": 92.62614369209902,
+      "modelled_p95_hold_s": 10.0
     },
     {
       "max_count": 32,
       "max_wait_s": 60,
-      "modelled_batches": 71979,
-      "modelled_reduction_pct": 96.87494301619512,
-      "modelled_p95_hold_s": 0.05525628401665017
+      "modelled_batches": 75758,
+      "modelled_reduction_pct": 96.71087307438155,
+      "modelled_p95_hold_s": 39.0750367641449
     }
   ]
 }

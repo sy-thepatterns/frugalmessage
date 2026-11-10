@@ -1,0 +1,36 @@
+name: frugalmessage-study
+services:
+  db:
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    environment:
+      POSTGRES_USER: study
+      POSTGRES_PASSWORD: study-only-local
+      POSTGRES_DB: study
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U study -d study"]
+      interval: 2s
+      retries: 30
+  app:
+    build:
+      context: ..
+      dockerfile: experiment/Dockerfile
+      network: host
+    environment:
+      FM_PG_DSN: postgresql://study:study-only-local@db:5432/study
+    ports:
+      - "127.0.0.1:8765:8765"
+    depends_on:
+      db:
+        condition: service_healthy
+  runner:
+    build:
+      context: ..
+      dockerfile: experiment/Dockerfile
+      network: host
+    volumes:
+      - ../analysis/results/replay:/data/replay:ro
+      - ../analysis/results/experimental_runs:/data/runs
+    depends_on:
+      - app
+    entrypoint: ["python", "-m", "experiment.harness", "replay"]
+    profiles: ["runner"]

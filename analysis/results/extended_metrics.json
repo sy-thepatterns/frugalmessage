@@ -1,0 +1,115 @@
+{
+  "rows": 2303286,
+  "unique_timestamps": 2303286,
+  "same_timestamp_fraction": 0.0,
+  "gap_p99_s": 320.24148480999946,
+  "gap_max_s": 98324.884293,
+  "daily_lowest": [
+    {
+      "timestamp": "2004-04-03",
+      "readings": "3",
+      "active_motes": "1"
+    },
+    {
+      "timestamp": "2004-04-02",
+      "readings": "279",
+      "active_motes": "3"
+    },
+    {
+      "timestamp": "2004-03-30",
+      "readings": "28020",
+      "active_motes": "40"
+    },
+    {
+      "timestamp": "2004-03-31",
+      "readings": "28217",
+      "active_motes": "34"
+    },
+    {
+      "timestamp": "2004-04-01",
+      "readings": "30636",
+      "active_motes": "25"
+    },
+    {
+      "timestamp": "2004-03-26",
+      "readings": "31256",
+      "active_motes": "44"
+    }
+  ],
+  "daily_active_motes_min": 1,
+  "daily_active_motes_max": 54,
+  "scenarios": [
+    {
+      "max_count": 1,
+      "max_wait_s": 1,
+      "per_mote_batches": 2303286,
+      "per_mote_reduction_pct": 0.0,
+      "per_mote_p95_hold_s": 0.0,
+      "per_mote_p99_hold_s": 0.0
+    },
+    {
+      "max_count": 1,
+      "max_wait_s": 10,
+      "per_mote_batches": 2303286,
+      "per_mote_reduction_pct": 0.0,
+      "per_mote_p95_hold_s": 0.0,
+      "per_mote_p99_hold_s": 0.0
+    },
+    {
+      "max_count": 1,
+      "max_wait_s": 60,
+      "per_mote_batches": 2303286,
+      "per_mote_reduction_pct": 0.0,
+      "per_mote_p95_hold_s": 0.0,
+      "per_mote_p99_hold_s": 0.0
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 1,
+      "per_mote_batches": 2302686,
+      "per_mote_reduction_pct": 0.026049739372357994,
+      "per_mote_p95_hold_s": 1.0,
+      "per_mote_p99_hold_s": 1.0
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 10,
+      "per_mote_batches": 2294458,
+      "per_mote_reduction_pct": 0.38327849863195596,
+      "per_mote_p95_hold_s": 10.0,
+      "per_mote_p99_hold_s": 10.0
+    },
+    {
+      "max_count": 8,
+      "max_wait_s": 60,
+      "per_mote_batches": 1175074,
+      "per_mote_reduction_pct": 48.98271426127715,
+      "per_mote_p95_hold_s": 60.0,
+      "per_mote_p99_hold_s": 60.0
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 1,
+      "per_mote_batches": 2302686,
+      "per_mote_reduction_pct": 0.026049739372357994,
+      "per_mote_p95_hold_s": 1.0,
+      "per_mote_p99_hold_s": 1.0
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 10,
+      "per_mote_batches": 2294454,
+      "per_mote_reduction_pct": 0.38345216356110434,
+      "per_mote_p95_hold_s": 10.0,
+      "per_mote_p99_hold_s": 10.0
+    },
+    {
+      "max_count": 32,
+      "max_wait_s": 60,
+      "per_mote_batches": 1174995,
+      "per_mote_reduction_pct": 48.98614414362784,
+      "per_mote_p95_hold_s": 60.0,
+      "per_mote_p99_hold_s": 60.0
+    }
+  ]
+}
