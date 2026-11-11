@@ -10,6 +10,8 @@ import argparse
 from collections import defaultdict
 import csv
 import hashlib
+import http.client
+import platform
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -101,6 +103,8 @@ class Store:
             self.conn = psycopg.connect(pg_dsn)
             self.placeholder = '%s'
         else:
+            if sqlite_path and sqlite_path != ':memory:':
+                Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
             self.conn = sqlite3.connect(sqlite_path or ':memory:', check_same_thread=False)
             self.conn.execute('PRAGMA journal_mode=WAL')
             self.conn.execute('PRAGMA synchronous=FULL')
@@ -140,6 +144,9 @@ class Task:
         self.done = threading.Event()
         self.duplicates = 0
         self.error = None
+        self.enqueued_at = time.perf_counter()
+        self.queue_wait_ms = None
+        self.database_commit_ms = None
 
 
 def serve(args) -> None:
@@ -154,7 +161,10 @@ def serve(args) -> None:
         while True:
             task = tasks.get()
             try:
+                task.queue_wait_ms = (time.perf_counter() - task.enqueued_at) * 1000
+                commit_start = time.perf_counter()
                 task.duplicates = store.insert(task.run_id, task.events)
+                task.database_commit_ms = (time.perf_counter() - commit_start) * 1000
             except Exception as exc:
                 task.error = str(exc)
             finally:
@@ -199,13 +209,20 @@ def serve(args) -> None:
             if self.path != '/batch':
                 self.reply(404, {'error': 'unknown path'})
                 return
-            length = int(self.headers.get('Content-Length', '0'))
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                self.close_connection = True
+                self.reply(400, {'error': 'invalid content length'})
+                return
             if not 0 < length <= 2_000_000:
                 self.reply(413, {'error': 'body length outside 1..2000000'})
                 return
             body = self.rfile.read(length)
             try:
                 payload = json.loads(body)
+                if not isinstance(payload, dict) or not isinstance(payload.get('events'), list):
+                    raise ValueError('object payload and event list required')
                 run_id = str(payload['run_id'])
                 events = payload['events']
                 if not 0 < len(events) <= 256 or len(run_id) > 128:
@@ -213,7 +230,7 @@ def serve(args) -> None:
                 keys = {(e['route_key'], e['tenant'], e['schema']) for e in events}
                 if len(keys) != 1 or len({e['event_id'] for e in events}) != len(events):
                     raise ValueError('mixed compatibility keys or duplicate IDs in batch')
-                if any(not isinstance(e['sequence'], int) for e in events):
+                if any(type(e['sequence']) is not int or e['sequence'] < 0 for e in events):
                     raise ValueError('sequence must be integer')
             except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
                 self.reply(400, {'error': str(exc)})
@@ -235,7 +252,9 @@ def serve(args) -> None:
                 with lock:
                     stats['duplicate_attempts'] += task.duplicates
                 self.reply(200, {'committed': len(events) - task.duplicates,
-                                 'duplicate_attempts': task.duplicates})
+                                 'duplicate_attempts': task.duplicates,
+                                 'queue_wait_ms': task.queue_wait_ms,
+                                 'database_commit_ms': task.database_commit_ms})
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f'Serving {"PostgreSQL" if store.postgres else "SQLite"} on {args.host}:{args.port}', flush=True)
@@ -248,6 +267,43 @@ def serve(args) -> None:
 def get_json(url: str) -> dict:
     with urlopen(url, timeout=60) as response:
         return json.load(response)
+
+
+class BatchConnection:
+    """Explicit connection reuse ablation; failures discard the old connection."""
+    def __init__(self, url, transport):
+        self.url = url.rstrip('/') + '/batch'
+        self.parsed = urlparse(self.url)
+        if self.parsed.scheme not in ('http', 'https'):
+            raise ValueError('HTTP or HTTPS URL required')
+        self.transport = transport
+        self.connection = None
+
+    def close(self):
+        if self.connection is not None:
+            self.connection.close()
+            self.connection = None
+
+    def post(self, body):
+        if self.transport == 'fresh':
+            request = Request(self.url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
+            with urlopen(request, timeout=65) as response:
+                return response.read()
+        try:
+            if self.connection is None:
+                cls = (http.client.HTTPSConnection if self.parsed.scheme == 'https'
+                       else http.client.HTTPConnection)
+                self.connection = cls(self.parsed.hostname, self.parsed.port, timeout=65)
+            self.connection.request('POST', self.parsed.path, body=body,
+                                    headers={'Content-Type': 'application/json'})
+            response = self.connection.getresponse()
+            payload = response.read()
+            if response.status != 200:
+                raise RuntimeError(f'HTTP {response.status}: {payload[:200]!r}')
+            return payload
+        except Exception:
+            self.close()
+            raise
 
 
 def replay(args) -> None:
@@ -265,6 +321,9 @@ def replay(args) -> None:
     outbound = queue.Queue()
     latencies_ms = []
     errors = []
+    timing = {key: [] for key in ('batch_hold_ms', 'sender_backlog_ms', 'http_attempt_ms',
+                                  'queue_wait_ms', 'database_commit_ms')}
+    max_outbound_batches = 0
     totals = {'request_body_bytes': 0, 'response_body_bytes': 0,
               'attempts': 0, 'batches': 0, 'duplicate_attempts': 0}
     expected = {r['event_id'] for r in rows}
@@ -272,23 +331,29 @@ def replay(args) -> None:
         raise ValueError('Replay event IDs are not unique')
 
     def send_batches():
+        client = BatchConnection(args.url, args.transport)
         while True:
-            batch = outbound.get()
-            if batch is None:
+            item = outbound.get()
+            if item is None:
+                client.close()
                 outbound.task_done()
                 return
+            batch, queued_ns = item
+            timing['sender_backlog_ms'].append((time.time_ns() - queued_ns) / 1e6)
             body = json.dumps({'run_id': run_id, 'events': batch}, separators=(',', ':')).encode()
             totals['batches'] += 1
             for attempt in range(3):
                 totals['attempts'] += 1
                 totals['request_body_bytes'] += len(body)
                 try:
-                    req = Request(args.url.rstrip('/') + '/batch', data=body,
-                                  headers={'Content-Type': 'application/json'}, method='POST')
-                    with urlopen(req, timeout=65) as response:
-                        reply_body = response.read()
+                    attempt_start = time.perf_counter()
+                    reply_body = client.post(body)
                     totals['response_body_bytes'] += len(reply_body)
+                    timing['http_attempt_ms'].append((time.perf_counter() - attempt_start) * 1000)
                     reply = json.loads(reply_body)
+                    for key in ('queue_wait_ms', 'database_commit_ms'):
+                        if reply.get(key) is not None:
+                            timing[key].append(reply[key])
                     totals['duplicate_attempts'] += reply['duplicate_attempts']
                     acknowledged_ns = time.time_ns()
                     latencies_ms.extend((acknowledged_ns - e['emitted_ns']) / 1e6 for e in batch)
@@ -311,8 +376,12 @@ def replay(args) -> None:
     max_wait = args.max_wait_ms / 1000
 
     def flush(route):
+        nonlocal max_outbound_batches
         if pending[route]:
-            outbound.put(pending[route])
+            queued_ns = time.time_ns()
+            timing['batch_hold_ms'].extend((queued_ns - e['emitted_ns']) / 1e6 for e in pending[route])
+            outbound.put((pending[route], queued_ns))
+            max_outbound_batches = max(max_outbound_batches, outbound.qsize())
             pending[route] = []
             first_at.pop(route, None)
 
@@ -362,13 +431,22 @@ def replay(args) -> None:
     elapsed = time.monotonic() - start
     output = {'run_id': run_id, 'configuration': f'count={args.max_count},wait_ms={args.max_wait_ms}',
               'profile': args.profile, 'speedup': args.speedup, 'database': get_json(args.url.rstrip('/') + '/health')['database'],
-              'machine': args.machine, 'started_utc': started_utc, 'ended_utc': utc_now(),
+              'machine': args.machine, 'transport': args.transport,
+              'runtime': {'python': platform.python_version(), 'platform': platform.platform(),
+                          'numpy': np.__version__},
+              'event_limit': args.limit, 'started_utc': started_utc, 'ended_utc': utc_now(),
               'expected_tasks': len(rows), 'successful_tasks': len(stored_ids) - extra,
               'lost': lost, 'extra': extra, 'duplicate_completions': duplicate_completions,
               'duplicate_attempts': totals['duplicate_attempts'], 'send_errors': errors,
               'p50_latency_ms': float(np.quantile(latencies_ms, .5)) if latencies_ms else None,
               'p95_latency_ms': float(np.quantile(latencies_ms, .95)) if latencies_ms else None,
               'p99_latency_ms': float(np.quantile(latencies_ms, .99)) if latencies_ms else None,
+              'timing_ms': {key: {'count': len(values),
+                                  'p50': float(np.quantile(values, .5)) if values else None,
+                                  'p95': float(np.quantile(values, .95)) if values else None,
+                                  'max': max(values) if values else None}
+                            for key, values in timing.items()},
+              'max_outbound_batches': max_outbound_batches,
               'p95_schedule_lag_ms': float(np.quantile(schedule_lag_ms, .95)),
               'elapsed_s': elapsed, 'throughput_tasks_s': len(stored_ids) / elapsed,
               'producer_cpu_s': cpu_seconds, 'request_body_bytes': totals['request_body_bytes'],
@@ -403,6 +481,7 @@ def main() -> None:
     server.add_argument('--sqlite', default=':memory:')
     server.add_argument('--pg-dsn')
     client = sub.add_parser('replay')
+    client.add_argument('--transport', choices=['fresh', 'persistent'], default='fresh')
     client.add_argument('--events', default='analysis/results/replay/replay_events.csv')
     client.add_argument('--profile', required=True)
     client.add_argument('--url', default='http://127.0.0.1:8765')

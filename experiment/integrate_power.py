@@ -7,6 +7,8 @@ boundaries; CPU package energy cannot be passed as either one.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 from pathlib import Path
 import shutil
@@ -16,13 +18,22 @@ import pandas as pd
 
 
 def integrate(samples: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, max_gap_s: float) -> float:
-    if end <= start:
+    if pd.isna(start) or pd.isna(end) or end <= start:
         raise ValueError('Run end must follow start')
+    if not np.isfinite(max_gap_s) or max_gap_s <= 0 or len(samples) < 2:
+        raise ValueError('Need two samples and a positive maximum gap')
     ns = samples.timestamp_utc.astype('int64').to_numpy()
     watts = samples.power_w.to_numpy(dtype=float)
+    if (not np.isfinite(watts).all() or (watts < 0).any() or
+            np.any(np.diff(ns) <= 0) or samples.timestamp_utc.isna().any()):
+        raise ValueError('Need finite nonnegative watts and unique increasing timestamps')
     a, b = start.value, end.value
     if a < ns[0] or b > ns[-1]:
         raise ValueError('Watt samples do not cover the full run interval')
+    left = max(0, int(np.searchsorted(ns, a, side='right')) - 1)
+    right = min(len(ns) - 1, int(np.searchsorted(ns, b, side='left')))
+    if np.diff(ns[left:right + 1]).max() / 1e9 > max_gap_s:
+        raise ValueError('Power sampling gap exceeds declared maximum')
     inner = ns[(ns > a) & (ns < b)]
     points = np.concatenate(([a], inner, [b]))
     if np.diff(points).max() / 1e9 > max_gap_s:
@@ -41,7 +52,9 @@ def main() -> None:
     parser.add_argument('--max-gap-s', type=float, default=5)
     parser.add_argument('--idle-watts', type=float)
     args = parser.parse_args()
-    samples = pd.read_csv(args.watts)
+    source_bytes = args.watts.read_bytes()
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    samples = pd.read_csv(io.BytesIO(source_bytes))
     if not {'timestamp_utc', 'power_w'}.issubset(samples.columns):
         raise ValueError('Watt CSV requires timestamp_utc,power_w')
     samples['timestamp_utc'] = pd.to_datetime(samples.timestamp_utc, utc=True)
@@ -54,6 +67,7 @@ def main() -> None:
     plan = json.loads(args.plan.read_text(encoding='utf-8'))
     args.output.mkdir(parents=True, exist_ok=True)
     shutil.copy2(args.plan, args.output / args.plan.name)
+    (args.output / args.watts.name).write_bytes(source_bytes)
     failures = []
     for item in plan['runs_in_execution_order']:
         name = f"{item['run_id']}.json"
@@ -69,6 +83,8 @@ def main() -> None:
             record['energy_boundary'] = args.boundary
             record['meter_id'] = args.meter_id
             record['power_sample_file'] = args.watts.name
+            record['power_sample_sha256'] = source_sha256
+            record['power_max_gap_s'] = args.max_gap_s
             if args.idle_watts is not None:
                 record['incremental_j'] = record['energy_j'] - args.idle_watts * (end - start).total_seconds()
                 record['idle_watts'] = args.idle_watts

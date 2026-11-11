@@ -22,3 +22,16 @@ def test_hysteresis_then_immediate_rollback():
     assert controller.step(0, good, candidates)[0] == BASELINE
     assert controller.step(1, good, candidates)[0] == Setting(8, 100)
     assert controller.step(2, {**good, 'lost': 1}, candidates)[0] == BASELINE
+
+
+def test_lost_energy_evidence_clears_active_setting():
+    controller = SafeController()
+    controller.current = Setting(8, 100)
+    controller.pending = Setting(32, 500)
+    controller.pending_count = 1
+    good = {'age_s': 0, 'lost': 0, 'queue_depth': 0, 'recent_p95_ms': 100,
+            'monitoring_cost_ms': 1}
+    assert controller.step(10, good, [])[0] == BASELINE
+    assert controller.current == BASELINE
+    assert controller.pending is None
+    assert controller.pending_count == 0

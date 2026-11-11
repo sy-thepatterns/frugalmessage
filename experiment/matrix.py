@@ -6,6 +6,8 @@ provided. Failed runs remain in the plan and are never silently discarded.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import platform
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -17,6 +19,7 @@ from uuid import uuid4
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--transport', choices=['fresh', 'persistent'], default='fresh')
     parser.add_argument('--events', required=True)
     parser.add_argument('--url', default='http://app:8765')
     parser.add_argument('--output', type=Path, required=True)
@@ -26,6 +29,7 @@ def main() -> None:
     parser.add_argument('--configs', nargs='+', default=['1:0', '8:100', '32:500'])
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--speedup', type=float, default=120)
+    parser.add_argument('--limit', type=int, help='Diagnostic subset only; not a full study')
     parser.add_argument('--seed', type=int, default=20261110)
     args = parser.parse_args()
     if args.repeats < 3 or args.speedup <= 0:
@@ -42,6 +46,10 @@ def main() -> None:
     rng = random.Random(args.seed)
     rng.shuffle(plan)
     manifest = {'study_id': study_id, 'created_utc': datetime.now(timezone.utc).isoformat(),
+                'source_sha256': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest()
+                                  for name in ('experiment/harness.py', 'experiment/matrix.py', 'experiment/contract.json')},
+                'runtime': {'python': platform.python_version(), 'platform': platform.platform()},
+                'transport': args.transport, 'event_limit': args.limit, 'diagnostic_only': args.limit is not None,
                 'machine': args.machine, 'profiles': args.profiles, 'configs': args.configs,
                 'repeats': args.repeats, 'speedup': args.speedup, 'random_seed': args.seed,
                 'experimental_limits': {'p95_latency_ms': 2000, 'p99_latency_ms': 5000,
@@ -53,10 +61,12 @@ def main() -> None:
     failures = 0
     for index, item in enumerate(plan, 1):
         command = [sys.executable, '-m', 'experiment.harness', 'replay',
-                   '--events', args.events, '--url', args.url, '--output', str(args.output),
+                   '--transport', args.transport, '--events', args.events, '--url', args.url, '--output', str(args.output),
                    '--machine', args.machine, '--profile', item['profile'],
                    '--max-count', str(item['max_count']), '--max-wait-ms', str(item['max_wait_ms']),
                    '--speedup', str(args.speedup), '--run-id', item['run_id']]
+        if args.limit is not None:
+            command += ['--limit', str(args.limit)]
         result = subprocess.run(command, text=True, capture_output=True)
         if result.returncode:
             failures += 1

@@ -5,3 +5,5 @@ __pycache__/
 .tmp/
 analysis/results/figures/plotly.min.js
 
+
+.pytest_cache/

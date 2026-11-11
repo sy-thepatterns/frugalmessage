@@ -29,6 +29,24 @@ The preferred first device is the **Lenovo Yoga 7i Gen 9 Windows laptop**, follo
 
 ## Human intervention and claim boundary
 
-No data API key is needed: the Intel, Azure, and selected Alibaba archives are public and have been downloaded. To finish a measured optimiser, open this checkout on the Yoga and run the [Windows power probe](../experiment/windows_power_probe.ps1); the current Windows host is an ASUS desktop and cannot read the Yoga's sensors. Docker Desktop with Linux containers is needed for the pinned PostgreSQL setup on Windows. If battery discharge rate is unavailable or too coarse, provide an AC plug meter with timestamped watt export. Opening the same checkout on the MacBook Air is needed for the second-device study.
+No data API key is needed: the Intel, Azure, and selected Alibaba archives are public and have been downloaded. To finish a measured optimiser, open this checkout on the Yoga and run the [Windows power probe](../experiment/windows_power_probe.ps1); the current session is on Lenovo model 83DL and successfully reads discharge watts when unplugged. SQLite diagnostic energy is measured, while the reference PostgreSQL energy study remains pending. Docker Desktop with Linux containers is needed for the pinned PostgreSQL setup on Windows. If battery discharge rate is unavailable or too coarse, provide an AC plug meter with timestamped watt export. Opening the same checkout on the MacBook Air is needed for the second-device study.
 
 Current evidence supports workload characterization, real sampled service-edge concentration, reproducible replay, and a functional testbed. It does **not** yet support a measured energy saving or an adaptive optimiser advantage. Report null and adverse outcomes along with improvements.
+
+## Latest Lenovo implementation work
+
+The local test suite now exercises HTTP rejection, acknowledgement after commit,
+idempotent retry, persistent connections, queue saturation, database failure,
+invalid power samples, and controller rollback when energy evidence disappears.
+Windows/Linux CI and a development dependency file make these checks repeatable.
+The instrumented harness separates hold, sender backlog, HTTP, server queue and
+commit timing; direct persistent HTTP is an explicit transport ablation.
+
+Battery samples were captured on Lenovo Yoga 7 2-in-1 16IML9 (83DL), with results
+and limitations in [Lenovo testing](lenovo-testing.md). SQLite and diagnostic plans
+cannot select a reference-study energy winner. Docker is absent in this session;
+the guarded `experiment/run_lenovo_study.ps1` prepares the 54-run PostgreSQL study
+once a working Linux Docker engine is installed. A real-service held-out trace,
+second-device study, capture-overhead ablation, and measured online controller
+switching/monitoring costs remain outstanding, rather than being inferred from
+local functional runs.

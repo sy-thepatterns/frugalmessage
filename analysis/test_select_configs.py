@@ -1,6 +1,8 @@
 import json
+import pytest
 
-def test_failed_repeat_disqualifies_configuration(tmp_path):
+@pytest.mark.parametrize('mode', ['reference', 'subset', 'sqlite'])
+def test_failed_repeat_disqualifies_configuration(tmp_path, mode):
     import importlib.util
     from pathlib import Path
 
@@ -14,7 +16,7 @@ def test_failed_repeat_disqualifies_configuration(tmp_path):
             run_id = f'{count}-{repeat}'
             entries.append({'profile': 'steady', 'max_count': count,
                             'max_wait_ms': wait, 'repeat': repeat, 'run_id': run_id})
-            result = {'successful_tasks': 10, 'expected_tasks': 10,
+            result = {'database': 'sqlite' if mode == 'sqlite' else 'postgres', 'successful_tasks': 10, 'expected_tasks': 10,
                       'lost': int(count == 8 and repeat == 2), 'extra': 0,
                       'duplicate_completions': 0, 'send_errors': [],
                       'p95_latency_ms': 100, 'p99_latency_ms': 200,
@@ -23,12 +25,12 @@ def test_failed_repeat_disqualifies_configuration(tmp_path):
                       'producer_cpu_s': 1, 'energy_j': None,
                       'energy_boundary': 'unmeasured'}
             (tmp_path / f'{run_id}.json').write_text(json.dumps(result))
-    plan = {'repeats': 3, 'experimental_limits': {'p95_latency_ms': 2000,
+    plan = {'diagnostic_only': mode == 'subset', 'repeats': 3, 'experimental_limits': {'p95_latency_ms': 2000,
             'p99_latency_ms': 5000, 'lost': 0, 'duplicate_completions': 0,
             'send_errors': 0}, 'runs_in_execution_order': entries}
     plan_path = tmp_path / 'plan.json'
     plan_path.write_text(json.dumps(plan))
     summary = module.summarize(plan_path, tmp_path / 'out')
-    assert summary[summary.max_count.eq(1)].eligible.item()
+    assert summary[summary.max_count.eq(1)].eligible.item() == (mode == 'reference')
     assert not summary[summary.max_count.eq(8)].eligible.item()
     assert 'pareto' not in summary.columns

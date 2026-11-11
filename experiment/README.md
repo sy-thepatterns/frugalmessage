@@ -42,7 +42,7 @@ All configurations within a profile use the same replay file. The three default 
 
 `energy_j` remains null until timestamped system-power samples supply a CSV with `timestamp_utc,power_w`, covering every run. For the preferred Lenovo Yoga study, use a plug-in AC meter with timestamped export around the laptop's charger. Keep the battery full and stable so charging does not dominate the reading, and fix screen brightness, power mode, peripherals, and background applications across runs. The measured boundary includes the adapter and its losses. A USB-C inline PD meter measures a different DC boundary and is also usable if documented consistently. A 65 W adapter is listed for Lenovo's Yoga 7i 16-inch Gen 9 family; check the exact machine type and supplied charger before choosing a meter.
 
-On Windows, `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\experiment\windows_power_probe.ps1` runs the repository's read-only model, battery, and ACPI power-counter check without changing the machine-wide script policy. It may report no usable counters; that does not prevent external watt measurement. If the Yoga reports a plausible discharge rate, `experiment/windows_battery_sample.ps1` can collect a separate **battery-DC** power series while unplugged. This measures battery output across the laptop, not AC input; check cadence and compare integrated energy with the drop in reported remaining capacity over a long run. Intel PCM/RAPL may show CPU package energy after its driver and processor support are checked, but it is not whole-laptop system energy. On this checkout the host is an ASUS desktop, so the Yoga's sensors cannot yet be probed remotely.
+On Windows, `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\experiment\windows_power_probe.ps1` runs the repository's read-only model, battery, and ACPI power-counter check without changing the machine-wide script policy. It may report no usable counters; that does not prevent external watt measurement. If the Yoga reports a plausible discharge rate, `experiment/windows_battery_sample.ps1` can collect a separate **battery-DC** power series while unplugged. This measures battery output across the laptop, not AC input; check cadence and compare integrated energy with the drop in reported remaining capacity over a long run. Intel PCM/RAPL may show CPU package energy after its driver and processor support are checked, but it is not whole-laptop system energy. The current checkout runs on the Lenovo 83DL and exposes battery discharge telemetry while unplugged; local diagnostic capture is documented below.
 
 With watt samples available, use:
 
@@ -58,3 +58,62 @@ For an unplugged battery run, use `--boundary battery_dc` with the battery sampl
 `python analysis/05_select_configs.py --plan analysis/results/experimental_runs/STUDY-plan.json` reports every planned run and configuration eligibility. It computes a joules/latency Pareto frontier only when all planned runs contain one consistent AC-wall or battery-DC energy boundary. No energy winner is selected from body bytes or CPU time.
 
 The ZOTAC study was stopped at the owner's request before its matrix completed. Its partial runs are retained only in the ignored `.tmp` directory for audit and are not used for selection. The Yoga is the preferred primary target; the M1 MacBook Air and gaming PC can provide separate hardware checks. Compare each machine's frontier separately. The [safe controller](controller.py) is an initial adaptation gate: it refuses to switch without complete system-energy evidence, requires a conservative run-range benefit and a switching-cost estimate, waits for two stable observations and a dwell period, and falls back immediately on stale telemetry, loss, queue buildup, or latency breach. Its actual switching and monitoring cost must be measured on held-out windows before it is described as an optimiser.
+
+## Latency diagnosis
+
+Replay records event-weighted batch hold and batch-weighted sender backlog,
+HTTP-attempt, server-queue, and commit timing in `timing_ms`. These are component
+distributions; their percentiles must not be added together. `max_outbound_batches`
+exposes sender backlog. Additional response timing fields add instrumentation
+bytes and overhead; compare runs from the same source version.
+
+`--transport fresh` preserves the original urllib behavior. `--transport persistent`
+uses one direct HTTP connection and reconnects after failures. Transport choice is
+recorded in results and matrix plans; compare batching settings within one transport.
+Persistent mode is for direct study endpoints and does not use HTTP proxy settings.
+The initial Lenovo diagnosis found much lower sender backlog with connection reuse.
+
+Use `python -m experiment.matrix --events analysis/results/replay/replay_events.csv
+--url http://127.0.0.1:8765 --output .tmp/diagnostic --machine YOUR_MACHINE
+--profiles intel_steady --limit 300 --repeats 3 --transport persistent` as one command
+for a short diagnostic. A subset plan is explicitly diagnostic. SQLite runs and
+subset plans are excluded from reference-study eligibility and energy selection.
+
+## Lenovo study workflow
+
+Install Docker Desktop with its Linux container engine and create the Python
+virtual environment described in the root README. Docker must be running and
+`docker info --format '{{.OSType}}'` must report `linux`. Build and download images
+before a controlled measurement where possible. This session did not have Docker
+installed, so the PostgreSQL matrix could not be executed here.
+
+With a usable discharge-rate sensor and enough battery charge, unplug the Lenovo,
+fix brightness and power mode, close unnecessary background jobs, and run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\experiment\run_lenovo_study.ps1 -Transport persistent
+```
+
+This builds the isolated study containers, starts streaming battery samples,
+records a 60-second idle control, executes all 54 randomized PostgreSQL runs,
+integrates battery-DC joules, audits selection, and stops its study containers and
+sampler. The default sampling budget is 3600 seconds; increase `-SampleSeconds`
+if necessary. If capture stops, the runner is aborted and partial artifacts remain.
+Battery capture stops below 5 Wh remaining capacity or if AC is reconnected.
+Do not reconnect the charger until the workflow finishes. Logs, source hashes,
+dependency versions, plan, raw watts, and selection live beneath
+`analysis/results/experimental_runs/lenovo-*`.
+
+Sampling streams to disk so errors retain preceding samples. Inspect sensor update
+cadence, timestamp gaps and integrated joules against the reported capacity drop
+over a long interval. One-second polling does not imply the sensor updates each
+second. The integrator rejects gaps over five seconds, including a short run that
+falls inside a long unsampled gap. The idle interval is retained for review; no
+idle subtraction happens automatically. Whole-laptop readings include the display,
+Docker, sampling process, editor and other applications. Measure capture overhead
+with a separate ablation before making small energy-saving claims.
+
+Held-out real-service payloads/compatibility rules, a second physical device, and
+measured controller switching and monitoring cost remain required before claiming
+an adaptive optimiser advantage. The controller now clears active and pending
+settings when its energy evidence disappears.

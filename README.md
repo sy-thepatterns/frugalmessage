@@ -26,7 +26,7 @@ The current-code rerun found that previously checked-in batching figures were st
 - [Replay selection](analysis/results/replay/report.md) uses all 14 Azure invocation-day files and availability-gated Intel windows. Run `python analysis/04_replay_windows.py` after downloading the [Azure release](https://github.com/Azure/AzurePublicDataset/releases/download/dataset-functions-2019/azurefunctions_dataset2019_azurefunctions-dataset2019.tar.xz). The 24,066 replay events have stable IDs; Azure within-minute timing is constructed and labelled.
 - [Controlled service study](experiment/README.md) supplies a portable HTTP/queue/worker/database harness, isolated PostgreSQL Compose setup, randomized run plan, strict repeat-level eligibility, and a whole-host watt-sample integration path. Run `python analysis/05_select_configs.py --plan PATH_TO_PLAN` after repeated results are available.
 
-The Lenovo Yoga 7i is the preferred first hardware target; an M1 MacBook Air is planned as a second target when this checkout is opened there. A partial ZOTAC run was stopped at the owner's request and is excluded from selection. **Whole-host energy remains unmeasured** until timestamped AC-wall or battery-DC power samples are supplied; the study does not infer joules from application sends or CPU time.
+The Lenovo Yoga 7i is the preferred first hardware target; an M1 MacBook Air is planned as a second target when this checkout is opened there. A partial ZOTAC run was stopped at the owner's request and is excluded from selection. **Reference PostgreSQL study energy remains unmeasured**; local Lenovo SQLite tests now have battery-DC watt samples and integrated joules (see the validation report below); the study does not infer joules from application sends or CPU time.
 
 ## Research boundary
 
@@ -34,3 +34,23 @@ The Intel log is a record of wireless sensor readings and their arrival timestam
 
 See [sources.md](analysis/sources.md) for dataset provenance and limitations. Raw downloads and generated results are ignored by Git.
 
+
+## Development and Lenovo execution
+
+Create an isolated environment from the repository root:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest analysis experiment -q
+```
+
+Windows and Linux CI run the analysis and HTTP/database-contract tests. SQLite
+creates its parent directory automatically. NumPy 2+ is required by the power
+integrator's trapezoidal integration API.
+
+The current checkout was tested on a Lenovo Yoga 7 2-in-1 16IML9 (83DL).
+BatteryStatus exposes discharge watts when unplugged. Charging watts and the
+zero ACPI Power Meter reading are not system-consumption measurements.
+See [Lenovo execution](experiment/README.md#lenovo-study-workflow) and the
+[local validation report](analysis/lenovo-testing.md) for measurements and limits.

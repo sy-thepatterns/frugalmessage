@@ -51,6 +51,10 @@ class SafeController:
             return self.current, 'fallback: stale or unsafe telemetry'
         baseline = next((r for r in candidates if int(r['max_count']) == 1 and int(r['max_wait_ms']) == 0), None)
         if baseline is None or not baseline.get('min_joules_per_success'):
+            self.current = BASELINE
+            self.pending = None
+            self.pending_count = 0
+            self.last_switch_s = now_s
             return BASELINE, 'fallback: no verified system-energy baseline'
         try:
             baseline_best = float(baseline['min_joules_per_success'])
@@ -62,6 +66,10 @@ class SafeController:
                         float(r['max_p95_ms']) <= .75 * self.latency_budget_ms and
                         (baseline_best - float(r['max_joules_per_success'])) * rate * horizon_s > switching_j]
         except (KeyError, ValueError, TypeError):
+            self.current = BASELINE
+            self.pending = None
+            self.pending_count = 0
+            self.last_switch_s = now_s
             return BASELINE, 'fallback: missing switching-cost evidence'
         if not feasible:
             target = BASELINE

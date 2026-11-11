@@ -21,6 +21,7 @@ def summarize(plan_path: Path, output: Path) -> pd.DataFrame:
         rows.append({**entry, 'machine': plan.get('machine', 'unspecified'), 'present': bool(record),
                      'successful_tasks': record.get('successful_tasks', 0),
                      'expected_tasks': record.get('expected_tasks'),
+                     'database': record.get('database'),
                      'lost': record.get('lost'), 'extra': record.get('extra'),
                      'duplicate_completions': record.get('duplicate_completions'),
                      'send_errors': len(record.get('send_errors', [])) if record else None,
@@ -68,6 +69,9 @@ def summarize(plan_path: Path, output: Path) -> pd.DataFrame:
         mean_producer_wire_frame_bytes=('producer_wire_frame_bytes', 'mean'),
         mean_database_wire_frame_bytes=('database_wire_frame_bytes', 'mean'))
     grouped['eligible'] = grouped.all_runs_valid & grouped.repeats.ge(plan['repeats']) & grouped.completed_runs.eq(plan['repeats'])
+    functional_only = bool(plan.get('diagnostic_only') or runs.database.eq('sqlite').any())
+    if functional_only:
+        grouped['eligible'] = False
     grouped['mean_app_body_bytes'] = grouped.mean_request_body_bytes + grouped.mean_response_body_bytes
     base = grouped[grouped.max_count.eq(1) & grouped.max_wait_ms.eq(0)].set_index('profile')
     grouped['batch_reduction_vs_baseline_pct'] = grouped.apply(
@@ -75,7 +79,7 @@ def summarize(plan_path: Path, output: Path) -> pd.DataFrame:
     grouped['app_body_reduction_vs_baseline_pct'] = grouped.apply(
         lambda r: 100 * (1 - r.mean_app_body_bytes / base.loc[r.profile, 'mean_app_body_bytes']), axis=1)
     boundaries = runs.energy_boundary.dropna().unique().tolist()
-    system_energy = (len(boundaries) == 1 and boundaries[0] in ('wall_ac', 'battery_dc') and
+    system_energy = (not functional_only and len(boundaries) == 1 and boundaries[0] in ('wall_ac', 'battery_dc') and
                      runs.energy_j.notna().all() and runs.energy_j.ge(0).all())
     if system_energy and not runs.empty:
         grouped['energy_boundary'] = boundaries[0]
@@ -99,6 +103,8 @@ def summarize(plan_path: Path, output: Path) -> pd.DataFrame:
         status = f'Measured {boundaries[0]} energy Pareto computed among eligible configurations; do not pool with other boundaries.'
     else:
         status = 'No complete, consistent AC-wall or battery-DC joules for every run; energy Pareto intentionally omitted.'
+    if functional_only:
+        status = 'Functional SQLite or diagnostic study only; all configurations are ineligible for reference-study selection and no energy winner is selected.'
     output.mkdir(parents=True, exist_ok=True)
     runs.to_csv(output / 'run_audit.csv', index=False)
     grouped.to_csv(output / 'configuration_summary.csv', index=False)
